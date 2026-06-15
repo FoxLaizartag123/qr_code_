@@ -13,8 +13,6 @@ BOT_TOKEN = "8714786580:AAFIe5giVn9y6i4Ypq1UVk3ugrY3oWu33m0"
 stripe.api_key = "rk_test_51RD1iPP2dZ0v0hXpfqSUTXLnAhtk0LvudBmlFiTjaCvxqSGDyYUasCy2zcGMeF7eWf8j5v4hPoAzjJACjkhMODJt0057sTqofN"
 STRIPE_WEBHOOK_SECRET = "https://qr-code-4-he8e.onrender.com"
 
-STRIPE_PRICE_BASIC = "price_basic"
-STRIPE_PRICE_PRO = "price_pro"
 
 PAYMENT_BASIC = "https://buy.stripe.com/test_9B66oJ7I091V8Xxc4o5Ne00"
 PAYMENT_PRO = "https://buy.stripe.com/test_eVqbJ38M46TN2z90lG5Ne01"
