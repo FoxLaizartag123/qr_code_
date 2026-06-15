@@ -6,27 +6,21 @@ from PIL import Image, ImageDraw
 
 from fastapi import FastAPI, Request
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, ContextTypes, filters
+from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 
-# =========================
-# CONFIG
-# =========================
 BOT_TOKEN = "8714786580:AAFIe5giVn9y6i4Ypq1UVk3ugrY3oWu33m0"
 
 stripe.api_key = "rk_test_51RD1iPP2dZ0v0hXpfqSUTXLnAhtk0LvudBmlFiTjaCvxqSGDyYUasCy2zcGMeF7eWf8j5v4hPoAzjJACjkhMODJt0057sTqofN"
-STRIPE_WEBHOOK_SECRET = ""
+STRIPE_WEBHOOK_SECRET = "https://qr-code-4-he8e.onrender.com"
+
+STRIPE_PRICE_BASIC = "price_basic"
+STRIPE_PRICE_PRO = "price_pro"
 
 PAYMENT_BASIC = "https://buy.stripe.com/test_9B66oJ7I091V8Xxc4o5Ne00"
 PAYMENT_PRO = "https://buy.stripe.com/test_eVqbJ38M46TN2z90lG5Ne01"
 
-# =========================
-# APP FASTAPI (WEBHOOK)
-# =========================
 app_web = FastAPI()
 
-# =========================
-# DATABASE
-# =========================
 conn = sqlite3.connect("saas.db", check_same_thread=False)
 cursor = conn.cursor()
 
@@ -39,16 +33,10 @@ CREATE TABLE IF NOT EXISTS users (
 """)
 conn.commit()
 
-# =========================
-# MEMORY
-# =========================
 user_style = {}
 user_color = {}
 user_gallery = {}
 
-# =========================
-# SAAS LOGIC
-# =========================
 def get_user(uid):
     cursor.execute("SELECT plan, usage FROM users WHERE id=?", (uid,))
     return cursor.fetchone()
@@ -78,12 +66,8 @@ def can_generate(uid):
 
     cursor.execute("UPDATE users SET usage=usage+1 WHERE id=?", (uid,))
     conn.commit()
-
     return True, plan
 
-# =========================
-# QR ENGINE (MANTIDO IGUAL)
-# =========================
 def build_qr(text, color="#000000"):
     qr = segno.make(text, error="h")
 
@@ -93,23 +77,33 @@ def build_qr(text, color="#000000"):
 
     img = Image.open(bio).convert("RGBA")
 
-    canvas = Image.new("RGBA", (img.size[0]+40, img.size[1]+40), (255,255,255,255))
-    canvas.paste(img, (20,20), img)
+    canvas = Image.new(
+        "RGBA",
+        (img.size[0] + 40, img.size[1] + 40),
+        (255, 255, 255, 255)
+    )
+
+    canvas.paste(img, (20, 20), img)
 
     draw = ImageDraw.Draw(canvas)
-    draw.rectangle([5,5,canvas.size[0]-5,canvas.size[1]-5], outline=color, width=3)
+    draw.rectangle(
+        [5, 5, canvas.size[0] - 5, canvas.size[1] - 5],
+        outline=color,
+        width=3
+    )
 
     return canvas
 
-# =========================
-# STRIPE WEBHOOK (AUTOMÁTICO)
-# =========================
 @app_web.post("/stripe/webhook")
 async def stripe_webhook(req: Request):
     payload = await req.body()
     sig = req.headers.get("stripe-signature")
 
-    event = stripe.Webhook.construct_event(payload, sig, STRIPE_WEBHOOK_SECRET)
+    event = stripe.Webhook.construct_event(
+        payload,
+        sig,
+        STRIPE_WEBHOOK_SECRET
+    )
 
     if event["type"] == "checkout.session.completed":
         session = event["data"]["object"]
@@ -121,26 +115,19 @@ async def stripe_webhook(req: Request):
 
     return {"ok": True}
 
-# =========================
-# TELEGRAM BOT
-# =========================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
     await update.message.reply_text(
         "🚀 QR ENGINE PRO\n\n"
         "🟢 FREE: 1 QR\n🟡 BASIC: 50 QR\n🔵 PRO: ilimitado\n\n"
-        "💳 /upgrade para planos\n/qr texto"
+        "💳 /upgrade\n/qr texto"
     )
 
-# =========================
-# UPGRADE (STRIPE CHECKOUT)
-# =========================
 async def upgrade(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
 
     basic = stripe.checkout.Session.create(
         mode="subscription",
-        line_items=[{"price": "PRICE_BASIC", "quantity": 1}],
+        line_items=[{"price": STRIPE_PRICE_BASIC, "quantity": 1}],
         metadata={"telegram_id": str(uid), "plan": "basic"},
         success_url="https://t.me",
         cancel_url="https://t.me"
@@ -148,27 +135,23 @@ async def upgrade(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     pro = stripe.checkout.Session.create(
         mode="subscription",
-        line_items=[{"price": "PRICE_PRO", "quantity": 1}],
+        line_items=[{"price": STRIPE_PRICE_PRO, "quantity": 1}],
         metadata={"telegram_id": str(uid), "plan": "pro"},
         success_url="https://t.me",
         cancel_url="https://t.me"
     )
 
     keyboard = [
-        [InlineKeyboardButton("🟡 BASIC", url=basic.url)],
-        [InlineKeyboardButton("🔵 PRO", url=pro.url)]
+        [InlineKeyboardButton("BASIC", url=basic.url)],
+        [InlineKeyboardButton("PRO", url=pro.url)]
     ]
 
     await update.message.reply_text(
-        "💳 Escolhe plano:",
+        "Escolhe plano:",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
-# =========================
-# QR GENERATOR (TEU ORIGINAL + SAAS)
-# =========================
 async def qr(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
     uid = update.effective_user.id
     text = " ".join(context.args)
 
@@ -178,10 +161,11 @@ async def qr(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ok, plan = can_generate(uid)
 
     if not ok:
-        return await update.message.reply_text("⛔ Limite atingido. Usa /upgrade")
+        return await update.message.reply_text(
+            "⛔ Limite atingido. Usa /upgrade"
+        )
 
-    style = "#000000"
-    img = build_qr(text, style)
+    img = build_qr(text)
 
     bio = BytesIO()
     bio.name = "qr.png"
@@ -190,11 +174,7 @@ async def qr(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_photo(bio)
 
-# =========================
-# AUTO MODE (MANTIDO)
-# =========================
 async def auto(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
     uid = update.effective_user.id
     text = update.message.text
 
@@ -212,9 +192,6 @@ async def auto(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_photo(bio)
 
-# =========================
-# RUN BOT
-# =========================
 def run_bot():
     app = Application.builder().token(BOT_TOKEN).build()
 
@@ -224,15 +201,11 @@ def run_bot():
 
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, auto))
 
-    print("BOT RUNNING")
     app.run_polling()
 
-# =========================
-# MAIN (BOT + WEBHOOK)
-# =========================
 if __name__ == "__main__":
-    import uvicorn
     from threading import Thread
+    import uvicorn
 
     Thread(target=run_bot).start()
     uvicorn.run(app_web, host="0.0.0.0", port=8000)
