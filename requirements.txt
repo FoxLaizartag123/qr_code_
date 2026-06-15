@@ -3,3 +3,5 @@ segno
 pillow
 requests
 stripe
+fastapi
+uvicorn
