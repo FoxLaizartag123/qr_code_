@@ -1,7 +1,6 @@
 python-telegram-bot==22.1
 segno
 pillow
-requests
 stripe
 fastapi
 uvicorn
